@@ -3,6 +3,7 @@ from datetime import datetime
 
 from src.app.core.config import settings
 from src.app.models.composio import User
+from src.app.services.composio_tools import gmail_tools_actions, calendar_tools_actions, weather_tools_actions, search_tools_actions
 from composio_agno import Action, ComposioToolSet
 from agno.models.openai import OpenAIChat
 from agno.agent import Agent
@@ -29,10 +30,27 @@ class ComposioService:
     async def get_user(self, email: str) -> Optional[User]:
         return self.users.get(email)
 
+    def is_oauth_app(self, app_name: str) -> bool:
+        """Check if the app requires OAuth authentication"""
+        oauth_apps = ['gmail', 'googlecalendar', 'notion', 'slack']
+        return app_name.lower() in [x.lower() for x in oauth_apps]
+
     async def connect_app(self, email: str, app_name: str) -> Dict:
         user = await self.get_user(email)
         if not user:
             raise ValueError("User not found")
+            
+        # For non-OAuth apps like weathermap and composio_search, auto-connect
+        if not self.is_oauth_app(app_name):
+            if app_name.lower() not in [x.lower() for x in user.connected_apps]:
+                user.connected_apps.append(app_name.lower())
+                self.users[email] = user
+            return {
+                "success": True,
+                "already_connected": True,
+                "message": f"Auto-connected to {app_name} (no auth required)",
+                "connection_id": None
+            }
             
         self.toolset.entity_id = user.entity_id
         
@@ -120,21 +138,18 @@ class ComposioService:
         
         # Initialize tools for each service
         gmail_tools = self.toolset.get_tools(
-            actions=[Action.GMAIL_FETCH_EMAILS, Action.GMAIL_CREATE_EMAIL_DRAFT],
+            actions=gmail_tools_actions,
             check_connected_accounts=True
         )
         calendar_tools = self.toolset.get_tools(
-            actions=[Action.GOOGLECALENDAR_CREATE_EVENT, Action.GOOGLECALENDAR_FIND_EVENT],
+            actions=calendar_tools_actions,
             check_connected_accounts=True
         )
         weather_tools = self.toolset.get_tools(
-            actions=[Action.WEATHERMAP_WEATHER]
+            actions=weather_tools_actions
         )
         search_tools = self.toolset.get_tools(
-            actions=[
-                Action.COMPOSIO_SEARCH_NEWS_SEARCH,
-                Action.COMPOSIO_SEARCH_SEARCH
-            ]
+            actions=search_tools_actions
         )
         
         # Create agents
@@ -143,7 +158,7 @@ class ComposioService:
                 name="Gmail Agent",
                 role="Manage email communications",
                 model=self.model,
-                instructions="Use tools to fetch and create email drafts",
+                instructions="Use tools to manage gmail operations",
                 add_datetime_to_instructions=True,
                 timezone_identifier=timezone,
                 tools=gmail_tools,
@@ -153,7 +168,7 @@ class ComposioService:
                 name="Calendar Agent",
                 role="Manage calendar events",
                 model=self.model,
-                instructions="Use tools to create and find calendar events",
+                instructions="Use tools to manage google calendar operations",
                 add_datetime_to_instructions=True,
                 timezone_identifier=timezone,
                 tools=calendar_tools,
