@@ -2,3 +2,4 @@
 /.env
 /.venv
 __pycache__/
+fastapi-server/.env

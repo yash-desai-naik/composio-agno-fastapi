@@ -3,7 +3,7 @@ from datetime import datetime
 
 from src.app.core.config import settings
 from src.app.models.composio import User
-from src.app.services.composio_tools import gmail_tools_actions, calendar_tools_actions, weather_tools_actions, search_tools_actions
+from src.app.services.composio_tools import gmail_tools_actions, calendar_tools_actions, weather_tools_actions, search_tools_actions, googledrive_tools_actions
 from composio_agno import Action, ComposioToolSet
 from agno.models.openai import OpenAIChat
 from agno.agent import Agent
@@ -32,7 +32,7 @@ class ComposioService:
 
     def is_oauth_app(self, app_name: str) -> bool:
         """Check if the app requires OAuth authentication"""
-        oauth_apps = ['gmail', 'googlecalendar', 'notion', 'slack']
+        oauth_apps = ['gmail', 'googlecalendar', 'googledrive', 'notion', 'slack']
         return app_name.lower() in [x.lower() for x in oauth_apps]
 
     async def connect_app(self, email: str, app_name: str) -> Dict:
@@ -193,6 +193,18 @@ class ComposioService:
                 timezone_identifier=timezone,
                 tools=search_tools,
                 show_tool_calls=True
+            ),
+
+            Agent(
+                name="Google Drive Agent",
+                role="Handle Google Drive Operations",
+                model=self.model,
+                instructions="Use tools to manage google drive and perform google dtive actions",
+                add_datetime_to_instructions=True,
+                timezone_identifier=timezone,
+                tools=googledrive_tools_actions,
+                show_tool_calls=True
+
             )
         ]
         
@@ -206,14 +218,13 @@ class ComposioService:
                 "Collaborate to provide comprehensive assistance",
                 "Use tools effectively to fetch and create information",
                 "Ensure all responses are clear and actionable",
-                "Only output the final consolidated response, not individual agent responses",
-                "Use markdown formatting for better readability",
                 "Include relevant details such as dates, times, and locations",
                 "If an agent cannot complete a task, escalate to the team for further assistance",
             ],
             markdown=True,
             show_members_responses=True,
             add_datetime_to_instructions=True,
+            show_tool_calls=True,
         )
 
     async def check_required_apps(self, query: str, user: User) -> bool:
@@ -233,6 +244,14 @@ class ComposioService:
         # Check for weather operations
         if any(word in query_lower for word in ['weather', 'temperature', 'forecast']):
             required_apps.append('weathermap')
+        
+        # # Check for weather operations
+        # if any(word in query_lower for word in ['search for', 'search on web', 'get from web']):
+        #     required_apps.append('composio_search')
+
+        # Check for Google Drive operations
+        if any(word in query_lower for word in ['drive', 'googledrive', 'file', 'document', 'folder', 'upload', 'download', 'document', 'docs', 'sheet', 'spreadsheet']):
+            required_apps.append('googledrive')
             
         if not required_apps:  # If no specific apps required
             return True
