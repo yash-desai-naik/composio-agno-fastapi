@@ -11,6 +11,15 @@ from agno.team.team import Team
 from agno.memory.v2.memory import Memory
 from agno.memory.v2.db.sqlite import SqliteMemoryDb
 from agno.storage.sqlite import SqliteStorage
+from pydantic import BaseModel
+from typing import Optional
+
+class SharedContext(BaseModel):
+    weather_data: Optional[str] = None
+    location: Optional[str] = None
+    email_recipient: Optional[str] = None
+    last_action: Optional[str] = None
+    state: str = "initial"  # Required state field
 
 class ComposioService:
     def __init__(self):
@@ -177,7 +186,16 @@ class ComposioService:
                 name="Gmail Agent",
                 role="Manage email communications",
                 model=self.model,
-                instructions="Use tools to manage gmail operations",
+                instructions=[
+                    "Use tools to manage gmail operations",
+                    "When other agents provide data to send via email, use it exactly as provided",
+                    "For multi-step operations, maintain context of previous results",
+                    "When asked to send data from another agent, wait for their response first",
+                    "Check shared context for weather_data when sending weather-related emails",
+                    "Store email recipient in shared context for follow-up actions",
+                    "When context state is 'weather_fetched', use weather_data from context",
+                    "Update context state to 'email_sent' after sending email"
+                ],
                 add_datetime_to_instructions=True,
                 timezone_identifier=timezone,
                 tools=gmail_tools,
@@ -197,7 +215,15 @@ class ComposioService:
                 name="Weather Agent",
                 role="Provide weather information",
                 model=self.model,
-                instructions="Use tools to fetch weather data",
+                instructions=[
+                    "Use tools to fetch weather data",
+                    "When weather data is requested for email, provide complete formatted output",
+                    "For multi-day forecasts, include all available data",
+                    "Format weather data in a clear, readable format suitable for emails",
+                    "Store fetched weather data in shared context for other agents to use",
+                    "When fetching weather, update context state to 'weather_fetched'",
+                    "Set the location in shared context when processing weather requests"
+                ],
                 add_datetime_to_instructions=True,
                 timezone_identifier=timezone,
                 tools=weather_tools,
@@ -230,9 +256,12 @@ class ComposioService:
         ]
         
         # Create and return team
+        # Initialize shared context
+        shared_context = SharedContext(state="initial")
+        
         team = Team(
             name="Composio Team",
-            mode="coordinate",
+            mode="collaborate",  # Changed to collaborate for better multi-agent tasks
             model=self.model,
             members=agents,
             instructions=[
@@ -242,7 +271,11 @@ class ComposioService:
                 "Include relevant details such as dates, times, and locations",
                 "If an agent cannot complete a task, escalate to the team for further assistance",
                 "Use memories to provide personalized responses",
-                "Create and update memories when learning new information about the user"
+                "Create and update memories when learning new information about the user",
+                "For multi-step tasks, coordinate between agents and share results",
+                "Maintain context between sequential requests",
+                "When a task requires multiple agents, work together and share data",
+                "For email tasks with content from other agents, use the exact content provided"
             ],
             markdown=True,
             show_members_responses=True,
@@ -251,9 +284,11 @@ class ComposioService:
             memory=self.memory,  # Use the memory system
             enable_user_memories=True,  # Automatically create memories from user messages
             add_history_to_messages=True,  # Include chat history in context
-            num_history_runs=3,  # Number of previous runs to include in history
+            num_history_runs=2,  # Increased to maintain better context
             user_id=email,  # Set the user context for memory
             enable_agentic_context=True,  # Allow agents to use context from other agents
+            enable_agentic_memory=True,  # Enable agent-managed memory
+            context=shared_context  # Add shared context
         )
         return team
 
