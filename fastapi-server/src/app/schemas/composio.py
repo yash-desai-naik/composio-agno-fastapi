@@ -34,3 +34,7 @@ class ChatResponse(BaseModel):
     query: str
     response: str
     tool_calls: List[ToolCall] = []
+
+class AvailableApps(BaseModel):
+    oauth_apps: List[str]
+    no_auth_apps: List[str]

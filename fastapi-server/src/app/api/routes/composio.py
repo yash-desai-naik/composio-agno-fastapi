@@ -6,7 +6,8 @@ from src.app.schemas.composio import (
     ConnectionRequest,
     ChatRequest,
     ChatResponse,
-    ToolCall
+    ToolCall,
+    AvailableApps
 )
 from src.app.services.composio import ComposioService
 
@@ -53,3 +54,8 @@ async def process_query(email: str, chat_request: ChatRequest):
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/apps/available", response_model=AvailableApps)
+async def get_available_apps():
+    """Get the list of available OAuth and no-auth apps that can be connected"""
+    return await service.get_available_apps()

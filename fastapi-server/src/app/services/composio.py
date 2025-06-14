@@ -368,3 +368,13 @@ class ComposioService:
             "response": response,
             "tool_calls": tool_calls
         }
+
+    async def get_available_apps(self) -> Dict[str, List[str]]:
+        """Get the list of available OAuth and no-auth apps"""
+        oauth_apps = ['gmail', 'googlecalendar', 'googledrive', 'notion', 'slack']
+        no_auth_apps = ['weathermap', 'composio_search']
+        
+        return {
+            "oauth_apps": oauth_apps,
+            "no_auth_apps": no_auth_apps
+        }

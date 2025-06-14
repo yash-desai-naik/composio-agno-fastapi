@@ -78,6 +78,22 @@ curl -X 'GET' \
   -H 'accept: application/json'
 ```
 
+### Get Available Apps
+```bash
+# List all available apps that can be connected
+curl -X 'GET' \
+  'http://localhost:8000/api/v1/apps/available' \
+  -H 'accept: application/json'
+```
+
+The response will show OAuth apps and no-auth apps:
+```json
+{
+  "oauth_apps": ["gmail", "googlecalendar", "googledrive", "notion", "slack"],
+  "no_auth_apps": ["weathermap", "composio_search"]
+}
+```
+
 ## Chat Functionality
 
 ### Basic Email Operations
