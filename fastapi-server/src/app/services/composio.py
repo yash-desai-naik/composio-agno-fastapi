@@ -218,12 +218,14 @@ class ComposioService:
                 name="Google Drive Agent",
                 role="Handle Google Drive Operations",
                 model=self.model,
-                instructions="Use tools to manage google drive and perform google dtive actions",
+                instructions="Use tools to manage google drive operations including creating, editing, and managing files and folders",
                 add_datetime_to_instructions=True,
                 timezone_identifier=timezone,
-                tools=googledrive_tools_actions,
+                tools=self.toolset.get_tools(
+                    actions=googledrive_tools_actions,
+                    check_connected_accounts=True
+                ),
                 show_tool_calls=True
-
             )
         ]
         
@@ -250,7 +252,8 @@ class ComposioService:
             enable_user_memories=True,  # Automatically create memories from user messages
             add_history_to_messages=True,  # Include chat history in context
             num_history_runs=3,  # Number of previous runs to include in history
-            user_id=email  # Set the user context for memory
+            user_id=email,  # Set the user context for memory
+            enable_agentic_context=True,  # Allow agents to use context from other agents
         )
         return team
 
@@ -277,7 +280,8 @@ class ComposioService:
         #     required_apps.append('composio_search')
 
         # Check for Google Drive operations
-        if any(word in query_lower for word in ['drive', 'googledrive', 'file', 'document', 'folder', 'upload', 'download', 'document', 'docs', 'sheet', 'spreadsheet']):
+        if any(word in query_lower for word in ['drive', 'googledrive', 'create file', 'save file', 'upload', 'download', 'document', 'folder']) or \
+           any(phrase in query_lower for phrase in ['save it in', 'save in', 'create a file']):
             required_apps.append('googledrive')
             
         if not required_apps:  # If no specific apps required
