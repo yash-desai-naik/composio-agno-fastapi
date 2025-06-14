@@ -8,13 +8,32 @@ from composio_agno import Action, ComposioToolSet
 from agno.models.openai import OpenAIChat
 from agno.agent import Agent
 from agno.team.team import Team
-from agno.memory import ConversationMemory
-from agno.memory.storage import SQLiteStorage
+from agno.memory.v2.memory import Memory
+from agno.memory.v2.db.sqlite import SqliteMemoryDb
+from agno.storage.sqlite import SqliteStorage
 
 class ComposioService:
     def __init__(self):
         self.toolset = ComposioToolSet(api_key=settings.COMPOSIO_API_KEY)
         self.model = OpenAIChat("gpt-4o")
+        
+        # Initialize memory storage
+        memory_db = SqliteMemoryDb(
+            table_name="user_memories",
+            db_file="agno_memory.db"
+        )
+        
+        # Initialize agent storage
+        agent_storage = SqliteStorage(
+            table_name="agent_sessions",
+            db_file="agno_storage.db"
+        )
+        
+        # Initialize memory with the storage backend
+        self.memory = Memory(
+            model=self.model,  # Use the same model for memory operations
+            db=memory_db,  # Use SQLite for persistent storage
+        )
 
     async def create_user(self, email: str, name: str) -> User:
         user = User(
@@ -209,7 +228,7 @@ class ComposioService:
         ]
         
         # Create and return team
-        return Team(
+        team = Team(
             name="Composio Team",
             mode="coordinate",
             model=self.model,
@@ -220,12 +239,20 @@ class ComposioService:
                 "Ensure all responses are clear and actionable",
                 "Include relevant details such as dates, times, and locations",
                 "If an agent cannot complete a task, escalate to the team for further assistance",
+                "Use memories to provide personalized responses",
+                "Create and update memories when learning new information about the user"
             ],
             markdown=True,
             show_members_responses=True,
             add_datetime_to_instructions=True,
             show_tool_calls=True,
+            memory=self.memory,  # Use the memory system
+            enable_user_memories=True,  # Automatically create memories from user messages
+            add_history_to_messages=True,  # Include chat history in context
+            num_history_runs=3,  # Number of previous runs to include in history
+            user_id=email  # Set the user context for memory
         )
+        return team
 
     async def check_required_apps(self, query: str, user: User) -> bool:
         """Check if user has required apps connected based on query"""
@@ -319,7 +346,10 @@ class ComposioService:
         except Exception as e:
             response = f"Error processing query: {str(e)}"
         
-        # Update chat history with tool calls
+        # The team will automatically handle memory creation and updates
+        # through enable_user_memories=True
+        
+        # Keep a summary in chat history for UI purposes
         chat_entry = {
             "query": query,
             "response": response,
@@ -328,7 +358,7 @@ class ComposioService:
         }
         
         user.chat_history.append(chat_entry)
-        if len(user.chat_history) > 5:  # Keep only last 5 entries
+        if len(user.chat_history) > 5:  # Keep only last 5 entries for UI
             user.chat_history = user.chat_history[-5:]
             
         user.update_chat_history()

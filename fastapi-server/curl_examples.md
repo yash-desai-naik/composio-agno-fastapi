@@ -2,6 +2,14 @@
 
 This document provides examples of how to use the Composio Agno API endpoints using curl commands.
 
+## Usage Flow
+
+1. **Create User**: First, create a user profile in the system
+2. **Connect Apps**: Connect required apps before using their functionality
+3. **Chat Interaction**: Start interacting with the system through chat
+   - The system will remember user preferences and context
+   - Each interaction helps build a better understanding of the user
+
 ## User Management
 
 ### Create a New User
@@ -156,29 +164,71 @@ curl -X 'POST' \
 }'
 ```
 
-### Combined Operations
+### Personal Information & Preferences
 ```bash
-# Weather and Email
+# Tell the system about yourself
 curl -X 'POST' \
   'http://localhost:8000/api/v1/users/user@example.com/chat' \
   -H 'Content-Type: application/json' \
   -d '{
-  "query": "get the weather forecast for Paris and email it to example@gmail.com",
+  "query": "my name is John and I prefer to have meetings in the morning",
   "timezone": "Asia/Kolkata"
 }'
 
-# Search, Calendar, and Email
+# The system will remember this information for future interactions
 curl -X 'POST' \
   'http://localhost:8000/api/v1/users/user@example.com/chat' \
   -H 'Content-Type: application/json' \
   -d '{
-  "query": "search for AI conferences, create a calendar event for the next one, and email me the details",
+  "query": "schedule a team meeting for tomorrow",
+  "timezone": "Asia/Kolkata"
+}'
+```
+
+### Combined Operations with Context
+```bash
+# Weather and Email (With Context)
+curl -X 'POST' \
+  'http://localhost:8000/api/v1/users/user@example.com/chat' \
+  -H 'Content-Type: application/json' \
+  -d '{
+  "query": "get today's weather and send it to my usual email contacts",
+  "timezone": "Asia/Kolkata"
+}'
+
+# Smart Calendar Management
+curl -X 'POST' \
+  'http://localhost:8000/api/v1/users/user@example.com/chat' \
+  -H 'Content-Type: application/json' \
+  -d '{
+  "query": "find a good time for a team meeting next week based on my preferences",
   "timezone": "Asia/Kolkata"
 }'
 ```
 
 ## Notes
-- Before using any app functionality (Gmail, Calendar, Weather, Search), make sure to connect the required apps first
-- OAuth apps (Gmail, Google Calendar) will require authentication via a URL
+
+### Prerequisites
+1. Create a user first using the create user endpoint
+2. Connect required apps before using their functionality
+3. The system will start building memory after the first interaction
+
+### Authentication
+- OAuth apps (Gmail, Google Calendar, Google Drive) require authentication via a URL
 - No-auth apps (Weather, Search) are auto-connected when you try to connect them
-- All timestamps are handled in the specified timezone (defaults to "Asia/Kolkata" if not provided)
+
+### Memory System
+- The system remembers user preferences and information across sessions
+- Each interaction helps build a better understanding of the user
+- You can refer to previous conversations and the system will maintain context
+
+### Best Practices
+1. Start with simple queries to build context
+2. Let the system know about your preferences
+3. Use natural language - the system understands context
+4. All timestamps are handled in the specified timezone (defaults to "Asia/Kolkata" if not provided)
+
+### Error Handling
+- If an app isn't connected, the system will prompt you to connect it first
+- If the system needs clarification, it will ask follow-up questions
+- You can always ask the system what it remembers about you
