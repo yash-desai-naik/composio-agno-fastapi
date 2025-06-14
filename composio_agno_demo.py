@@ -163,6 +163,7 @@ if __name__ == "__main__":
     oauth_apps = [
         "googlecalendar",
         "gmail",
+        "googledrive",
             # "notion", "slack"
              ]
 
@@ -268,6 +269,31 @@ if __name__ == "__main__":
         show_tool_calls=True
     )
 
+    googledrive_agent = Agent(
+        name="Google Drive Agent",
+        role="Manage files and documents in Google Drive",
+        model=OpenAIChat("gpt-4o"),
+        instructions="Use tools to manage files in Google Drive",
+        add_datetime_to_instructions=True,
+        timezone_identifier="Asia/Kolkata",
+        tools=toolset.get_tools(
+            actions=[
+                Action.GOOGLEDRIVE_ADD_FILE_SHARING_PREFERENCE,
+                Action.GOOGLEDRIVE_COPY_FILE,
+                Action.GOOGLEDRIVE_CREATE_FILE_FROM_TEXT,
+                Action.GOOGLEDRIVE_CREATE_FOLDER,
+                Action.GOOGLEDRIVE_DELETE_FOLDER_OR_FILE,
+                Action.GOOGLEDRIVE_DOWNLOAD_FILE,
+                Action.GOOGLEDRIVE_EDIT_FILE,
+                Action.GOOGLEDRIVE_FIND_FILE,
+                Action.GOOGLEDRIVE_FIND_FOLDER,
+                Action.GOOGLEDRIVE_PARSE_FILE,
+                Action.GOOGLEDRIVE_UPLOAD_FILE
+            ],
+            check_connected_accounts=True
+        ),
+    )
+
     team = Team(
         name="Composio Team",
         mode="coordinate",
@@ -276,7 +302,8 @@ if __name__ == "__main__":
             gmail_agent,
             googlecalendar_agent,
             weather_agent,
-            web_search_agent
+            web_search_agent,
+            googledrive_agent
         ],
         instructions=[
             "Collaborate to provide comprehensive assistance",
@@ -305,7 +332,7 @@ if __name__ == "__main__":
 #     print(chunk.content, end="", flush=True)
 
     for chunk in team.run(
-        "search for the latest news on AI and summarize the key points. set goole meet with nddesai97@gmail.com for tomorrow at 10am to discuss the findings. also share the summary via email with her.",
+        "write a poem on 'Saturday' and save as poem_saturday.txt in googledrive",
         stream=True,
         show_full_reasoning=True,
         stream_intermediate_steps=True

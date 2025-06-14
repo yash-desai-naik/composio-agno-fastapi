@@ -8,10 +8,11 @@ from composio_agno import Action, ComposioToolSet
 from agno.models.openai import OpenAIChat
 from agno.agent import Agent
 from agno.team.team import Team
+from agno.memory import ConversationMemory
+from agno.memory.storage import SQLiteStorage
 
 class ComposioService:
     def __init__(self):
-        self.users: Dict[str, User] = {}  # In-memory storage
         self.toolset = ComposioToolSet(api_key=settings.COMPOSIO_API_KEY)
         self.model = OpenAIChat("gpt-4o")
 
@@ -24,11 +25,10 @@ class ComposioService:
             chat_history=[],
             created_at=datetime.now()
         )
-        self.users[email] = user
-        return user
+        return user.save()
 
     async def get_user(self, email: str) -> Optional[User]:
-        return self.users.get(email)
+        return User.get(email)
 
     def is_oauth_app(self, app_name: str) -> bool:
         """Check if the app requires OAuth authentication"""
@@ -44,7 +44,7 @@ class ComposioService:
         if not self.is_oauth_app(app_name):
             if app_name.lower() not in [x.lower() for x in user.connected_apps]:
                 user.connected_apps.append(app_name.lower())
-                self.users[email] = user
+                user.update_apps()
             return {
                 "success": True,
                 "already_connected": True,
@@ -72,7 +72,7 @@ class ComposioService:
                             # Update user's connected apps if not already in the list
                             if app_name.lower() not in [x.lower() for x in user.connected_apps]:
                                 user.connected_apps.append(app_name.lower())
-                                self.users[email] = user
+                                user.update_apps()
                             
                             return {
                                 "success": True,
@@ -331,7 +331,7 @@ class ComposioService:
         if len(user.chat_history) > 5:  # Keep only last 5 entries
             user.chat_history = user.chat_history[-5:]
             
-        self.users[email] = user
+        user.update_chat_history()
         
         return {
             "query": query,
