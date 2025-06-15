@@ -2,6 +2,9 @@
 from agno.agent import Agent
 from agno.models.openai import OpenAIChat
 from composio_agno import ComposioToolSet
+from mcp import StdioServerParameters
+from agno.tools.mcp import MCPTools
+from mcp import StdioServerParameters
 from composio_config import AGENT_CONFIG
 from ubik_tools import (
     gmail_tools_actions,
@@ -10,7 +13,7 @@ from ubik_tools import (
     websearch_tools_actions,
     googledrive_tools_actions
 )
-
+import os
 
 class AgentFactory:
     """Factory class for creating specialized agents"""
@@ -57,8 +60,9 @@ class AgentFactory:
             role="Manage email communications",
             model=OpenAIChat(AGENT_CONFIG["model"]),
             instructions=[
-                "Use tools to fetch and create email drafts",
+                "Use tools to manage gmail",
                 "use currency and other metrics/units as per the location of the user",
+                "use HTML instead of markdown formatting for better readability while writing emails or drafts",
             ],
             add_datetime_to_instructions=AGENT_CONFIG["add_datetime"],
             timezone_identifier=AGENT_CONFIG["timezone"],
@@ -129,6 +133,40 @@ class AgentFactory:
             tools=self.googledrive_tools,
         )
     
+
+    async def create_desktop_commander_agent(self) -> Agent:
+        """Create Desktop Commander agent"""
+
+         # Initialize the MCP server
+        server_params = StdioServerParameters(
+            command="npx",
+            args=["-y", "@wonderwhy-er/desktop-commander@latest"],
+        )
+
+        async with MCPTools(server_params=server_params) as mcp_tools:
+            agent = Agent(
+                tools=[mcp_tools],
+                instructions=[
+                    "You are a Desktop commander agent that can run cli commands directly.",
+                "specialized for macos and linux systems.",
+                "you're also a proffesional developer and devops engineer.",
+                f"- my home directory is: {get_home_directory()}",
+                "- before running any command, you should check if the user has mentioned a directory.",
+                "- if user mentions a directory, you should run the command in that directory.",
+                "- make sure user has the 'Ubik AI' folder on their desktop. if not, create it.",
+                "If user don't mention the directory, assume it's the 'Ubik AI' folder on their desktop.",
+                "CAUTION: beware the user before running any destructive or dangerous commands.",
+            ],
+            markdown=True,
+            show_tool_calls=True,
+            add_datetime_to_instructions=True,
+            timezone_identifier= system_timezone(),
+        )
+        return agent
+        
+
+
+
     def create_all_agents(self) -> list:
         """Create and return all agents"""
         return [
@@ -136,5 +174,40 @@ class AgentFactory:
             self.create_calendar_agent(),
             self.create_weather_agent(),
             self.create_search_agent(),
-            self.create_googledrive_agent()
+            self.create_googledrive_agent(),
+            # self.create_desktop_commander_agent()  # Uncomment if needed
         ]
+    
+
+
+
+
+"""
+Utility functions for system information
+"""
+
+
+def system_timezone() -> str:
+    """Get the system timezone."""
+    
+    #determine of os
+    if os.name == 'posix':  # Unix-like systems (Linux, macOS)
+        # return os.popen('date +%Z').read().strip()
+        # use readlink /etc/localtime | sed 's|.*/zoneinfo/||'
+        try:
+            return os.readlink('/etc/localtime').split('zoneinfo/')[1]
+        except Exception as e:
+            print(f"Error getting timezone: {e}")
+            return "Unknown"
+    elif os.name == 'nt':  # Windows
+        return os.popen('tzutil /g').read().strip()
+    else:
+        raise NotImplementedError("Unsupported operating system")
+    
+
+
+
+def get_home_directory() -> str:
+    """Get the home directory of the current user."""
+    return os.path.expanduser("~")
+

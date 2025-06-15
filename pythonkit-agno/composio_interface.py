@@ -87,19 +87,32 @@ class ComposioInterface:
                 # For streaming, collect all chunks
                 response_chunks = []
                 for chunk in self.team.run(query, stream=True):
-                    response_chunks.append(chunk.content)
+                    # Handle None content
+                    if chunk.content is not None:
+                        response_chunks.append(str(chunk.content))
+                
+                # Filter out any "None" strings and join
+                filtered_chunks = [chunk for chunk in response_chunks if chunk and chunk != "None"]
+                response_text = "".join(filtered_chunks)
                 
                 return {
                     "success": True,
-                    "response": "".join(response_chunks),
+                    "response": response_text,
                     "streamed": True
                 }
             else:
                 # Non-streaming response
                 response = self.team.run(query)
+                # Handle None content
+                response_text = str(response.content) if response.content is not None else ""
+                
+                # Clean up "None" strings
+                if response_text == "None" or response_text.strip() == "":
+                    response_text = "No response received"
+                
                 return {
                     "success": True,
-                    "response": response.content
+                    "response": response_text
                 }
         except Exception as e:
             return {
@@ -139,9 +152,16 @@ class ComposioInterface:
         
         try:
             result = await self.team.arun(query)
+            # Handle None content
+            response_text = str(result) if result is not None else ""
+            
+            # Clean up "None" strings
+            if response_text == "None" or response_text.strip() == "":
+                response_text = "No response received"
+            
             return {
                 "success": True,
-                "response": result
+                "response": response_text
             }
         except Exception as e:
             return {
@@ -209,10 +229,17 @@ def quick_query(query: str, api_key: Optional[str] = None, entity_id: Optional[s
     Returns:
         Dict with response or error
     """
-    interface = create_interface(api_key, entity_id)
-    init_result = interface.initialize()
-    
-    if not init_result["success"]:
-        return init_result
-    
-    return interface.process_query(query)
+    try:
+        interface = create_interface(api_key, entity_id)
+        init_result = interface.initialize()
+        
+        if not init_result["success"]:
+            return init_result
+        
+        return interface.process_query(query)
+    except Exception as e:
+        return {
+            "success": False,
+            "error": str(e),
+            "message": "Failed to execute quick query"
+        }

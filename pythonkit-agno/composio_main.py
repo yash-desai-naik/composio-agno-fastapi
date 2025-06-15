@@ -144,11 +144,25 @@ def cmd_interactive(interface: ComposioInterface):
                 print("\033[H\033[J")  # Clear screen
             elif query:
                 print("\n🤖 Assistant: ", end="", flush=True)
-                result = interface.process_query(query, stream=True)
-                if result["success"]:
-                    print(result.get("response", "No response"))
-                else:
-                    print(f"❌ Error: {result.get('error', 'Unknown error')}")
+                
+                # Use streaming and handle None values properly
+                try:
+                    response_parts = []
+                    for chunk in interface.team.run(query, stream=True):
+                        if chunk.content is not None and str(chunk.content) != "None":
+                            content = str(chunk.content)
+                            print(content, end="", flush=True)
+                            response_parts.append(content)
+                    
+                    # If no content was printed, show a message
+                    if not response_parts:
+                        print("No response received")
+                    else:
+                        print()  # New line after response
+                        
+                except Exception as e:
+                    print(f"\n❌ Error processing query: {str(e)}")
+                    
         except KeyboardInterrupt:
             print("\n\n👋 Goodbye!")
             break

@@ -34,6 +34,7 @@ def create_team(agent_factory: AgentFactory) -> Team:
             "If an agent cannot complete a task, escalate to the team for further assistance",
             "while responding the final response, be respectful and polite but bit creative and engaging",
             "use curreny and other metrics/utints as per the location of the user",
+            "use HTML instead of markdown formatting for better readability while writing emails or drafts"
         ],
         markdown=TEAM_CONFIG["markdown"],
         add_datetime_to_instructions=True,
