@@ -1,3 +1,4 @@
+import asyncio
 from typing import Dict, Any
 # from composio import  App
 # from composio_openai import ComposioToolSet,  Action, App
@@ -9,6 +10,8 @@ from agno.agent import Agent
 from composio_agno import Action, ComposioToolSet, App
 
 from agno.team.team import Team
+
+from ubik_tools import gmail_tools_actions, calendar_tools_actions, weather_tools_actions, websearch_tools_actions, googledrive_tools_actions
 
 
 # openai_client = OpenAI()
@@ -193,45 +196,40 @@ if __name__ == "__main__":
 
     
     composio_google_calendar_tools = toolset.get_tools(
-        actions=[Action.GOOGLECALENDAR_CREATE_EVENT, Action.GOOGLECALENDAR_FIND_EVENT],
+        actions=calendar_tools_actions,
         check_connected_accounts=True,
         # entity_id=entity_id
     )
     composio_gmail_email_tools = toolset.get_tools(
-        actions=[Action.GMAIL_FETCH_EMAILS, Action.GMAIL_CREATE_EMAIL_DRAFT],
+        actions=gmail_tools_actions,
         check_connected_accounts=True,
     )
 
     compsio_weather_tools = toolset.get_tools(
-        actions=[Action.WEATHERMAP_WEATHER]
+        actions=weather_tools_actions,
     )
 
     composio_search_tools = toolset.get_tools(
-       actions=[
-           Action.COMPOSIO_SEARCH_DUCK_DUCK_GO_SEARCH,
-           Action.COMPOSIO_SEARCH_EVENT_SEARCH,
-           Action.COMPOSIO_SEARCH_EXA_SIMILARLINK,
-           Action.COMPOSIO_SEARCH_FINANCE_SEARCH,
-           Action.COMPOSIO_SEARCH_GOOGLE_MAPS_SEARCH,
-           Action.COMPOSIO_SEARCH_IMAGE_SEARCH,
-           Action.COMPOSIO_SEARCH_NEWS_SEARCH,
-           Action.COMPOSIO_SEARCH_SCHOLAR_SEARCH,
-           Action.COMPOSIO_SEARCH_SEARCH,
-           Action.COMPOSIO_SEARCH_SHOPPING_SEARCH,
-           Action.COMPOSIO_SEARCH_TAVILY_SEARCH,
-           Action.COMPOSIO_SEARCH_TRENDS_SEARCH
-       ]
+       actions=websearch_tools_actions,
+    )
+
+    googledrive_tools = toolset.get_tools(
+        actions=googledrive_tools_actions,
+        check_connected_accounts=True,
     )
 
     gmail_agent = Agent(
         name="Gmail Agent",
         role="Manage email communications",
-        model=OpenAIChat("gpt-4o"),
-        instructions="Use tools to fetch and create email drafts",
+        model=OpenAIChat("gpt-4o-mini"),
+        instructions=["Use tools to fetch and create email drafts",
+                       "use currency and other metrics/units as per the location of the user",
+        ],
         add_datetime_to_instructions=True,
         timezone_identifier="Asia/Kolkata",
         tools=composio_gmail_email_tools,
-        show_tool_calls=True
+        # show_tool_calls=True,
+        add_location_to_instructions=True
     )
 
 
@@ -239,65 +237,66 @@ if __name__ == "__main__":
     googlecalendar_agent = Agent(
         name="Google Calendar Agent",
         role="Manage calendar events and schedules",
-        model=OpenAIChat("gpt-4o"),
-        instructions="Use tools to create and find calendar events",
+        model=OpenAIChat("gpt-4o-mini"),
+        instructions=["Use tools to create and find calendar events",
+                       "use currency and other metrics/units as per the location of the user",
+        ],
         add_datetime_to_instructions=True,
         timezone_identifier="Asia/Kolkata",
         tools=composio_google_calendar_tools,
-        show_tool_calls=True
+        # show_tool_calls=True,
+        add_location_to_instructions=True
     )
 
     weather_agent = Agent(
         name="Weather Agent",
         role="Provide weather information",
-        model=OpenAIChat("gpt-4o"),
-        instructions="Use tools to fetch current weather data",
+        model=OpenAIChat("gpt-4o-mini"),
+        instructions=["Use tools to fetch current weather data",
+                       "use currency and other metrics/units as per the location of the user",
+        ],
         add_datetime_to_instructions=True,
         timezone_identifier="Asia/Kolkata",
         tools=compsio_weather_tools,
-        show_tool_calls=True
+        # show_tool_calls=True,
+        add_location_to_instructions=True
     )
 
     web_search_agent = Agent(
         name="Web Search Agent",
         role="Handle web search requests and general research",
-        model=OpenAIChat("gpt-4o"),
-        instructions="Use tools to perform web searches and gather information",
+        model=OpenAIChat("gpt-4o-mini"),
+        instructions=["Use tools to perform web searches and gather information",
+                       "use currency and other metrics/units as per the location of the user",
+        ],
         add_datetime_to_instructions=True,
         timezone_identifier="Asia/Kolkata",
         tools=composio_search_tools,
-        show_tool_calls=True
+        # show_tool_calls=True,
+        add_location_to_instructions=True,
+        
+        
     )
 
     googledrive_agent = Agent(
         name="Google Drive Agent",
         role="Manage files and documents in Google Drive",
-        model=OpenAIChat("gpt-4o"),
-        instructions="Use tools to manage files in Google Drive",
+        model=OpenAIChat("gpt-4o-mini"),
+        instructions=["Use tools to manage files in Google Drive",         
+                       "use currency and other metrics/units as per the location of the user",
+        ],
         add_datetime_to_instructions=True,
         timezone_identifier="Asia/Kolkata",
-        tools=toolset.get_tools(
-            actions=[
-                Action.GOOGLEDRIVE_ADD_FILE_SHARING_PREFERENCE,
-                Action.GOOGLEDRIVE_COPY_FILE,
-                Action.GOOGLEDRIVE_CREATE_FILE_FROM_TEXT,
-                Action.GOOGLEDRIVE_CREATE_FOLDER,
-                Action.GOOGLEDRIVE_DELETE_FOLDER_OR_FILE,
-                Action.GOOGLEDRIVE_DOWNLOAD_FILE,
-                Action.GOOGLEDRIVE_EDIT_FILE,
-                Action.GOOGLEDRIVE_FIND_FILE,
-                Action.GOOGLEDRIVE_FIND_FOLDER,
-                Action.GOOGLEDRIVE_PARSE_FILE,
-                Action.GOOGLEDRIVE_UPLOAD_FILE
-            ],
-            check_connected_accounts=True
-        ),
+        tools=googledrive_tools,
+        
+        # show_tool_calls=True,
+        # add_location_to_instructions=True
     )
 
     team = Team(
         name="Composio Team",
         mode="coordinate",
-        model=OpenAIChat("gpt-4o"),
+        model=OpenAIChat("gpt-4o-mini"),
         members=[
             gmail_agent,
             googlecalendar_agent,
@@ -313,28 +312,74 @@ if __name__ == "__main__":
             "Use markdown formatting for better readability",
             "Include relevant details such as dates, times, and locations",
             "If an agent cannot complete a task, escalate to the team for further assistance",
+            "while responding the final response, be respectful and polite but bit creative and engaging",
+            "use curreny and other metrics/utints as per the location of the user",
         ],
         markdown=True,
-        show_members_responses=True,
+        # show_members_responses=True,
         # enable_agentic_context=True,
         add_datetime_to_instructions=True,
+        add_location_to_instructions=True,
+        # show_tool_calls=True,
+        enable_agentic_context=True,
+        enable_agentic_memory=True,
+        share_member_interactions=True
     )
     
     # team.print_response(
-    #     """Fetch the latest emails and create a calendar event based on the summary of the emails.""",
+    #     """save current weather details in google drive as weather_details_[context].txt""",
     #     stream=True,
     #     show_full_reasoning=True,
     #     stream_intermediate_steps=True,
     # )
 
+
+async def main():
+    # Asynchronous execution
+    # result = await team.arun("What is the weather in Tokyo?")
+    # print("Result:", result)
+
+    # Asynchronous streaming
+    # async for chunk in await team.arun("explain the current weather as poet. also mention the numericals and location", stream=True,  stream_intermediate_steps=True):
+
+    #     print(chunk.content, end="", flush=True)
+
+
+    team.print_response(
+        "appl stock price?",
+        stream=True,
+        # stream_intermediate_steps=True
+    )
+
+    # response_stream = await team.arun("explain the curren weather as poet. also mention the numeics in poetic way", stream=True, stream_intermediate_steps=True)
+
+    # async for event in await response_stream:
+    #     if event.event == "TeamRunResponseContent":
+    #         # print(f"Content: {event.content}")
+    #         # print chunk of response
+    #         # print("Content:\n\n")
+    #         print(event.content, end="", flush=True)
+    #     elif event.event == "TeamToolCallStarted":
+    #         print(f"Tool call started: {event.tool}")
+    #     elif event.event == "ToolCallStarted":
+    #         print(f"Member tool call started: {event.tool}")
+    #     elif event.event == "ToolCallCompleted":
+    #         print(f"Member tool call completed: {event.tool}")
+    #     elif event.event == "TeamReasoningStep":
+    #         print(f"Reasoning step: {event.content}")
+
+if __name__ == "__main__":
+    asyncio.run(main())
+
    # Streaming responses
 # for chunk in team.run("Fetch the 3 latest emails and create a calendar event based on the summary of the emails.", stream=True):
 #     print(chunk.content, end="", flush=True)
 
-    for chunk in team.run(
-        "write a poem on 'Saturday' and save as poem_saturday.txt in googledrive",
-        stream=True,
-        show_full_reasoning=True,
-        stream_intermediate_steps=True
-    ):
-        print(chunk.content, end="", flush=True)
+    # for chunk in team.run(
+    #     # "get cheapest flight from Delhi to Mumbai on 15th October 2024 and hotel in Mumbai for 2 days and save it in google drive as flight_hotel_details_[context].txt",
+    #     "get detailed comparisions  of best 10 airfryers in india under budget of 10k inr. mention the users' top positive and negative reviews(detailed), and save it in google drive as airfryer_comparision_[context].txt.",
+    #     stream=True,
+    #     show_full_reasoning=True,
+    #     stream_intermediate_steps=True
+    # ):
+    #     print(chunk.content, end="", flush=True)

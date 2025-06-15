@@ -1,5 +1,7 @@
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Any
 from datetime import datetime
+from enum import Enum
+import uuid
 
 from src.app.core.config import settings
 from src.app.models.composio import User
@@ -11,15 +13,94 @@ from agno.team.team import Team
 from agno.memory.v2.memory import Memory
 from agno.memory.v2.db.sqlite import SqliteMemoryDb
 from agno.storage.sqlite import SqliteStorage
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import Optional
 
+UBIK_AI_NAME = "Ubik AI"
+UBIK_AI_DESCRIPTION = """
+Ubik AI is your personal AI assistant dedicated to managing and streamlining your daily digital workflows.
+It seamlessly coordinates between various services while maintaining strict privacy standards.
+Key principles:
+- Efficient multi-service workflow management
+- Secure handling of personal data
+- No training on user data
+- Privacy-first approach
+- Contextual awareness across services
+"""
+
+UBIK_AI_PRINCIPLES = [
+    "Protect user privacy and data confidentiality at all times",
+    "Never share user data between different users or external services",
+    "Use data only for completing the user's specific workflow",
+    "Maintain context across services while preserving data isolation",
+    "Clear all sensitive data after task completion",
+    "No training or learning from user's personal information"
+]
+
+class WorkflowState(str, Enum):
+    INITIAL = "initial"
+    PROCESSING = "processing"
+    FETCHING_DATA = "fetching_data"
+    DATA_FETCHED = "data_fetched"
+    TASK_FORWARDING = "task_forwarding"
+    TASK_PROCESSING = "task_processing"
+    TASK_COMPLETED = "task_completed"
+    COMPLETED = "completed"
+    ERROR = "error"
+
+class TaskContext(BaseModel):
+    current_task: str = Field(default="")
+    task_id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    source_service: Optional[str] = Field(default=None)
+    target_service: Optional[str] = Field(default=None)
+    source_data: Optional[Dict[str, Any]] = Field(default_factory=dict)
+    input_data: Optional[Dict[str, Any]] = Field(default_factory=dict)
+    output_data: Optional[Dict[str, Any]] = Field(default_factory=dict)
+    # Track task transitions
+    transitions: List[Dict[str, Any]] = Field(default_factory=list)
+    # Track dependencies between tasks
+    depends_on: Optional[str] = Field(default=None)  # task_id of dependent task
+
 class SharedContext(BaseModel):
-    weather_data: Optional[str] = None
-    location: Optional[str] = None
-    email_recipient: Optional[str] = None
-    last_action: Optional[str] = None
-    state: str = "initial"  # Required state field
+    state: WorkflowState = Field(default=WorkflowState.INITIAL)
+    task: Optional[TaskContext] = Field(default_factory=TaskContext)
+    # Track current active agent and last action
+    current_agent: Optional[str] = Field(default=None)
+    last_action: Optional[str] = Field(default=None)
+    # Store workflow-specific data
+    weather_data: Optional[Dict[str, Any]] = Field(default_factory=dict)
+    calendar_data: Optional[Dict[str, Any]] = Field(default_factory=dict)
+    email_data: Optional[Dict[str, Any]] = Field(default_factory=dict)
+    drive_data: Optional[Dict[str, Any]] = Field(default_factory=dict)
+    # Memory references
+    memory_keys: List[str] = Field(default_factory=list)
+    # Track task chain for complex workflows
+    task_chain: List[Dict[str, Any]] = Field(default_factory=list)
+    
+    def update_state(self, new_state: WorkflowState, agent: str, action: str):
+        """Update workflow state with tracking"""
+        self.state = new_state
+        self.current_agent = agent
+        self.last_action = action
+        # Track task transition
+        if self.task:
+            self.task.transitions.append({
+                "timestamp": datetime.now().isoformat(),
+                "from_state": self.state,
+                "to_state": new_state,
+                "agent": agent,
+                "action": action
+            })
+            
+    def add_to_task_chain(self, agent: str, action: str, data: Optional[Dict] = None):
+        """Add a step to the task execution chain"""
+        self.task_chain.append({
+            "timestamp": datetime.now().isoformat(),
+            "agent": agent,
+            "action": action,
+            "state": self.state,
+            "data": data or {}
+        })
 
 class ComposioService:
     def __init__(self):
@@ -134,7 +215,7 @@ class ComposioService:
             if auth_url and connection_id:
                 if app_name.lower() not in [x.lower() for x in user.connected_apps]:
                     user.connected_apps.append(app_name.lower())
-                    self.users[email] = user
+                    user.update_apps()  # Use the new SQLite update method
                 
             return {
                 "success": True,
@@ -180,21 +261,28 @@ class ComposioService:
             actions=search_tools_actions
         )
         
-        # Create agents
+        # Create specialized Ubik AI agents
         agents = [
             Agent(
                 name="Gmail Agent",
-                role="Manage email communications",
+                role="Personal Gmail manager",
                 model=self.model,
                 instructions=[
-                    "Use tools to manage gmail operations",
-                    "When other agents provide data to send via email, use it exactly as provided",
-                    "For multi-step operations, maintain context of previous results",
-                    "When asked to send data from another agent, wait for their response first",
-                    "Check shared context for weather_data when sending weather-related emails",
-                    "Store email recipient in shared context for follow-up actions",
-                    "When context state is 'weather_fetched', use weather_data from context",
-                    "Update context state to 'email_sent' after sending email"
+                    "Manage Gmail operations with efficiency and proper context",
+                    "When receiving a task from another agent:",
+                    "  1. Check task.source_data for input",
+                    "  2. Validate the data matches expected format",
+                    "  3. Update shared context state to TASK_PROCESSING",
+                    "  4. Execute email operation",
+                    "  5. Update task.output_data with results",
+                    "  6. Set state to TASK_COMPLETED",
+                    "When initiating a task for another agent:",
+                    "  1. Set state to TASK_FORWARDING",
+                    "  2. Prepare task.source_data with required information",
+                    "  3. Set task.target_service to receiving agent",
+                    "  4. Set task.depends_on if needed",
+                    "Always track transitions in shared context",
+                    "Use memory_keys to store/retrieve relevant context"
                 ],
                 add_datetime_to_instructions=True,
                 timezone_identifier=timezone,
@@ -202,10 +290,27 @@ class ComposioService:
                 show_tool_calls=True
             ),
             Agent(
-                name="Calendar Agent",
-                role="Manage calendar events",
+                name="Google Calendar",
+                role="Personal Google Calendar manager",
                 model=self.model,
-                instructions="Use tools to manage google calendar operations",
+                instructions=[
+                    "Manage calendar operations with proper task handling",
+                    "When receiving a task request:",
+                    "  1. Update state to PROCESSING",
+                    "  2. Check task requirements in context",
+                    "  3. Execute calendar operation",
+                    "  4. Store results in task.source_data",
+                    "  5. If forwarding to another service:",
+                    "     - Set state to TASK_FORWARDING",
+                    "     - Set task.target_service",
+                    "     - Update task_chain",
+                    "When operation complete:",
+                    "  1. Set state to TASK_COMPLETED",
+                    "  2. Update calendar_data in shared context",
+                    "  3. Add memory_keys if needed for future reference",
+                    "Check task_chain for workflow dependencies",
+                    "Maintain consistent state transitions"
+                ],
                 add_datetime_to_instructions=True,
                 timezone_identifier=timezone,
                 tools=calendar_tools,
@@ -213,16 +318,14 @@ class ComposioService:
             ),
             Agent(
                 name="Weather Agent",
-                role="Provide weather information",
+                role="Weather intelligence provider",
                 model=self.model,
                 instructions=[
-                    "Use tools to fetch weather data",
-                    "When weather data is requested for email, provide complete formatted output",
-                    "For multi-day forecasts, include all available data",
-                    "Format weather data in a clear, readable format suitable for emails",
-                    "Store fetched weather data in shared context for other agents to use",
-                    "When fetching weather, update context state to 'weather_fetched'",
-                    "Set the location in shared context when processing weather requests"
+                    "Provide accurate weather information efficiently",
+                    "Format weather data clearly for different use cases",
+                    "When data is for other services, provide complete formatted output",
+                    "Store weather data in shared context",
+                    "Update context state appropriately during workflow",
                 ],
                 add_datetime_to_instructions=True,
                 timezone_identifier=timezone,
@@ -230,21 +333,40 @@ class ComposioService:
                 show_tool_calls=True
             ),
             Agent(
-                name="Search Agent",
-                role="Handle web searches",
+                name="Web Search Agent",
+                role="Web search and information retrieval specialist",
                 model=self.model,
-                instructions="Use tools to search and gather information",
+                instructions=[
+                    "Gather information from the web efficiently",
+                    "Handle search queries with user's preferences in mind",
+                    "Provide relevant results with personal queries",
+                    "Format information/context appropriately for other services"
+                ],
                 add_datetime_to_instructions=True,
                 timezone_identifier=timezone,
                 tools=search_tools,
                 show_tool_calls=True
             ),
-
             Agent(
                 name="Google Drive Agent",
-                role="Handle Google Drive Operations",
+                role="Google Drive operations manager",
                 model=self.model,
-                instructions="Use tools to manage google drive operations including creating, editing, and managing files and folders",
+                instructions=[
+                    "Manage Drive operations with workflow awareness",
+                    "When receiving data from other agents:",
+                    "  1. Check task.source_data and validate",
+                    "  2. Set state to TASK_PROCESSING",
+                    "  3. Check source_service and dependencies",
+                    "  4. Execute file operation",
+                    "  5. Update drive_data in context",
+                    "  6. Set state to TASK_COMPLETED",
+                    "When requested in workflow:",
+                    "  1. Check task_chain for prerequisites",
+                    "  2. Validate all required data is present",
+                    "  3. Execute with proper error handling",
+                    "Track all operations in task transitions",
+                    "Use memory system for file organization"
+                ],
                 add_datetime_to_instructions=True,
                 timezone_identifier=timezone,
                 tools=self.toolset.get_tools(
@@ -256,39 +378,67 @@ class ComposioService:
         ]
         
         # Create and return team
-        # Initialize shared context
-        shared_context = SharedContext(state="initial")
+        # Initialize shared context with proper task tracking
+        shared_context = SharedContext(
+            state=WorkflowState.INITIAL,
+            task=TaskContext(
+                current_task="initialize_team",
+                source_service=None,
+                target_service=None
+            ),
+            task_chain=[{
+                "timestamp": datetime.now().isoformat(),
+                "agent": "system",
+                "action": "team_creation",
+                "state": WorkflowState.INITIAL,
+                "data": {}
+            }],
+            memory_keys=[]
+        ).model_dump()
         
         team = Team(
-            name="Composio Team",
-            mode="collaborate",  # Changed to collaborate for better multi-agent tasks
+            name=UBIK_AI_NAME,
+            mode="route",  # Use routing mode for managed task forwarding
             model=self.model,
             members=agents,
             instructions=[
-                "Collaborate to provide comprehensive assistance",
-                "Use tools effectively to fetch and create information",
-                "Ensure all responses are clear and actionable",
-                "Include relevant details such as dates, times, and locations",
-                "If an agent cannot complete a task, escalate to the team for further assistance",
-                "Use memories to provide personalized responses",
-                "Create and update memories when learning new information about the user",
-                "For multi-step tasks, coordinate between agents and share results",
-                "Maintain context between sequential requests",
-                "When a task requires multiple agents, work together and share data",
-                "For email tasks with content from other agents, use the exact content provided"
+                # Core workflow principles
+                "Operate as Ubik AI with proper task management",
+                
+                # Task routing
+                "For task forwarding between agents:",
+                "1. Source agent prepares task context",
+                "2. Updates shared state to TASK_FORWARDING",
+                "3. Target agent validates and processes",
+                "4. Updates state to TASK_COMPLETED",
+                
+                # Context management
+                "Maintain shared context across operations",
+                "Track task chain for multi-step workflows",
+                "Use memory_keys for persistent data",
+                
+                # State transitions
+                "Follow workflow state progression",
+                "Track all transitions in context",
+                "Handle errors with proper state updates",
+                
+                # Security and privacy
+                *UBIK_AI_PRINCIPLES,
             ],
             markdown=True,
             show_members_responses=True,
             add_datetime_to_instructions=True,
             show_tool_calls=True,
-            memory=self.memory,  # Use the memory system
-            enable_user_memories=True,  # Automatically create memories from user messages
-            add_history_to_messages=True,  # Include chat history in context
-            num_history_runs=2,  # Increased to maintain better context
-            user_id=email,  # Set the user context for memory
-            enable_agentic_context=True,  # Allow agents to use context from other agents
-            enable_agentic_memory=True,  # Enable agent-managed memory
-            context=shared_context  # Add shared context
+            memory=self.memory,
+            enable_user_memories=True,
+            add_history_to_messages=True,
+            num_history_runs=2,
+            user_id=email,
+            enable_agentic_context=True,
+            enable_agentic_memory=True,
+            context=shared_context,
+            task_router=True,  # Enable managed task routing
+            task_validation=True  # Enable task validation
         )
         return team
 

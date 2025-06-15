@@ -44,7 +44,7 @@ calendar_tools_actions = [
 
 weather_tools_actions = [Action.WEATHERMAP_WEATHER]
 
-search_tools_actions = [
+websearch_tools_actions = [
     Action.COMPOSIO_SEARCH_DUCK_DUCK_GO_SEARCH,
     Action.COMPOSIO_SEARCH_EVENT_SEARCH,
     Action.COMPOSIO_SEARCH_EXA_SIMILARLINK,
