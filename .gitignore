@@ -5,3 +5,7 @@ __pycache__/
 fastapi-server/.env
 .env
 .DS_Store
+ubik-cli-standalone/build
+dist/
+ubik-cli-standalone/.composio.lock
+ubik-cli-standalone/v1/build/

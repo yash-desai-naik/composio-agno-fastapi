@@ -1,0 +1,5 @@
+pyinstaller
+agno
+composio-agno
+openai
+mcp
