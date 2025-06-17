@@ -1,9 +1,8 @@
 import asyncio
 from typing import Dict, Any
-# from composio import  App
-# from composio_openai import ComposioToolSet,  Action, App
-# from openai import OpenAI
+
 from agno.models.openai import OpenAIChat
+# from agno.models.groq import Groq
 
 
 from agno.agent import Agent
@@ -14,7 +13,10 @@ from agno.team.team import Team
 from ubik_tools import gmail_tools_actions, calendar_tools_actions, weather_tools_actions, websearch_tools_actions, googledrive_tools_actions
 
 
-# openai_client = OpenAI()
+
+
+from agno.tools.mcp import MCPTools
+
 
 
 def connect_composio_app(
@@ -290,13 +292,14 @@ if __name__ == "__main__":
         tools=googledrive_tools,
         
         # show_tool_calls=True,
-        # add_location_to_instructions=True
+        add_location_to_instructions=True
     )
 
     team = Team(
         name="Composio Team",
         mode="coordinate",
         model=OpenAIChat("gpt-4o-mini"),
+        # model = selected_model("groq"),
         members=[
             gmail_agent,
             googlecalendar_agent,
@@ -334,39 +337,113 @@ if __name__ == "__main__":
     # )
 
 
+async def create_specialized_team():
+   
+    
+    # GitHub MCP agent
+    async with MCPTools("npx -y @modelcontextprotocol/server-github") as github_mcp:
+        github_agent = Agent(
+            name="GitHub Analyst",
+            role="Analyze GitHub repositories and development activity",
+            model=OpenAIChat(id="gpt-4o"),
+            tools=[github_mcp],
+            instructions=["Focus on code quality, activity, and project health"],
+        )
+        
+        # Filesystem MCP agent
+        async with MCPTools("npx -y @wonderwhy-er/desktop-commander@latest") as desktop_commander:
+            desktop_commander_agent = Agent(
+                name="File System Analyst",
+                role="Analyze local files and directories",
+                model=OpenAIChat(id="gpt-4o"),
+                tools=[desktop_commander],
+                instructions=["Analyze file structure and content"],
+            )
+            
+            # Create specialized team
+            dev_team = Team(
+                name="Development Analysis Team",
+                mode="coordinate",
+                model=OpenAIChat(id="gpt-4o"),
+                members=[
+                    weather_agent, 
+                      desktop_commander_agent,
+                    # github_agent,
+                      ],
+                instructions=[
+                    "Coordinate comprehensive development analysis",
+                    "Combine web research, GitHub analysis, and local file inspection",
+                    "Provide actionable insights for development projects"
+                ],
+                show_tool_calls=True,
+                markdown=True,
+            )
+            
+            # await dev_team.aprint_response(
+            #     "Analyze the current state of Python web frameworks",
+            #     stream=True
+            # )
+            
+            response_stream = await dev_team.arun("explain the current weather of bhruch as poet. also mention the numericals and location save it as '/Users/yashdesai/Desktop/Ubik AI/weather_details_[context].txt'", stream=True, stream_intermediate_steps=True)
+
+            print("\n\nWAIT FOR THE FINAL STREAMING RESPONSE...")
+            async for event in  response_stream:
+                if event.event == "TeamRunResponseContent":
+
+                    print(event.content, end="", flush=True)
+                elif event.event == "TeamToolCallStarted":
+                    # print(f"\nTool call started: {event.tool}")
+                    ...
+                elif event.event == "ToolCallStarted":
+                    # print(f"\nMember tool call started: {event.tool}")
+                    ...
+                elif event.event == "ToolCallCompleted":
+                    # print(f"\nMember tool call completed: {event.tool}")
+                    ...
+                elif event.event == "TeamReasoningStep":
+                    # print(f"Reasoning step: {event.content}")
+                    ...
+
+
+import json
 async def main():
+    # response_stream = await team.arun("explain the current weather of missisippi as poet. also mention the numericals and location save it as weather_details_[context].txt", stream=True, stream_intermediate_steps=True)
+
+    # async for event in  response_stream:
+    #     if event.event == "TeamRunResponseContent":
+
+    #         print(event.content, end="", flush=True)
+    #     elif event.event == "TeamToolCallStarted":
+    #         print(f"\nTool call started: {event.tool}")
+    #     elif event.event == "ToolCallStarted":
+    #         # print(f"\nMember tool call started: {event.tool}")
+    #         ...
+    #     elif event.event == "ToolCallCompleted":
+    #         # print(f"\nMember tool call completed: {event.tool}")
+    #         ...
+    #     elif event.event == "TeamReasoningStep":
+    #         # print(f"Reasoning step: {event.content}")
+    #         ...
+
+   await create_specialized_team()    
+    
     # Asynchronous execution
-    # result = await team.arun("What is the weather in Tokyo?")
-    # print("Result:", result)
+    # result = await team.arun("explain the current weather as poet. also mention the numericals and location",)
+    # # print(result, end='', flush=True)
+    # print(json.dumps(result.__dict__, indent=2, default=str))
 
     # Asynchronous streaming
-    # async for chunk in await team.arun("explain the current weather as poet. also mention the numericals and location", stream=True,  stream_intermediate_steps=True):
+    # async for chunk in await team.arun("explain the current weather as poet. also mention the numericals and location save it as weather_details_[context].txt", stream=True,  stream_intermediate_steps=True):
 
     #     print(chunk.content, end="", flush=True)
 
 
-    team.print_response(
-        "appl stock price?",
-        stream=True,
-        # stream_intermediate_steps=True
-    )
+    # team.print_response(
+    #     "appl stock price?",
+    #     stream=True,
+    #     # stream_intermediate_steps=True
+    # )
 
-    # response_stream = await team.arun("explain the curren weather as poet. also mention the numeics in poetic way", stream=True, stream_intermediate_steps=True)
-
-    # async for event in await response_stream:
-    #     if event.event == "TeamRunResponseContent":
-    #         # print(f"Content: {event.content}")
-    #         # print chunk of response
-    #         # print("Content:\n\n")
-    #         print(event.content, end="", flush=True)
-    #     elif event.event == "TeamToolCallStarted":
-    #         print(f"Tool call started: {event.tool}")
-    #     elif event.event == "ToolCallStarted":
-    #         print(f"Member tool call started: {event.tool}")
-    #     elif event.event == "ToolCallCompleted":
-    #         print(f"Member tool call completed: {event.tool}")
-    #     elif event.event == "TeamReasoningStep":
-    #         print(f"Reasoning step: {event.content}")
 
 if __name__ == "__main__":
     asyncio.run(main())

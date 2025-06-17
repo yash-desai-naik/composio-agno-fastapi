@@ -1,6 +1,8 @@
 """Agent factory module for creating specialized agents"""
 from agno.agent import Agent
-from agno.models.openai import OpenAIChat
+# from agno.models.openai import OpenAIChat
+from agno.models.groq import Groq
+
 from composio_agno import ComposioToolSet
 from mcp import StdioServerParameters
 from agno.tools.mcp import MCPTools
@@ -58,7 +60,8 @@ class AgentFactory:
         return Agent(
             name="Gmail Agent",
             role="Manage email communications",
-            model=OpenAIChat(AGENT_CONFIG["model"]),
+            # model=OpenAIChat(AGENT_CONFIG["model"]),
+            model=Groq(AGENT_CONFIG["model"]),
             instructions=[
                 "Use tools to manage gmail",
                 "use currency and other metrics/units as per the location of the user",
@@ -75,7 +78,8 @@ class AgentFactory:
         return Agent(
             name="Google Calendar Agent",
             role="Manage calendar events and schedules",
-            model=OpenAIChat(AGENT_CONFIG["model"]),
+            # model=OpenAIChat(AGENT_CONFIG["model"]),
+            model=Groq(AGENT_CONFIG["model"]),
             instructions=[
                 "Use tools to create and find calendar events",
                 "use currency and other metrics/units as per the location of the user",
@@ -91,7 +95,8 @@ class AgentFactory:
         return Agent(
             name="Weather Agent",
             role="Provide weather information",
-            model=OpenAIChat(AGENT_CONFIG["model"]),
+            # model=OpenAIChat(AGENT_CONFIG["model"]),
+            model=Groq(AGENT_CONFIG["model"]),
             instructions=[
                 "Use tools to fetch current weather data",
                 "use currency and other metrics/units as per the location of the user",
@@ -107,7 +112,8 @@ class AgentFactory:
         return Agent(
             name="Web Search Agent",
             role="Handle web search requests and general research",
-            model=OpenAIChat(AGENT_CONFIG["model"]),
+            # model=OpenAIChat(AGENT_CONFIG["model"]),
+            model=Groq(AGENT_CONFIG["model"]),
             instructions=[
                 "Use tools to perform web searches and gather information",
                 "use currency and other metrics/units as per the location of the user",
@@ -123,7 +129,8 @@ class AgentFactory:
         return Agent(
             name="Google Drive Agent",
             role="Manage files and documents in Google Drive",
-            model=OpenAIChat(AGENT_CONFIG["model"]),
+            # model=OpenAIChat(AGENT_CONFIG["model"]),
+            model=Groq(AGENT_CONFIG["model"]),
             instructions=[
                 "Use tools to manage files in Google Drive",
                 "use currency and other metrics/units as per the location of the user",

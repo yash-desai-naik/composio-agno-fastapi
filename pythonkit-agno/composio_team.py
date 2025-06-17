@@ -1,6 +1,7 @@
 """Team creation module for Composio integration"""
 from agno.team.team import Team
-from agno.models.openai import OpenAIChat
+# from agno.models.openai import OpenAIChat
+from agno.models.groq import Groq
 from composio_config import TEAM_CONFIG
 from composio_agents import AgentFactory
 
@@ -22,7 +23,8 @@ def create_team(agent_factory: AgentFactory) -> Team:
     team = Team(
         name=TEAM_CONFIG["name"],
         mode=TEAM_CONFIG["mode"],
-        model=OpenAIChat(TEAM_CONFIG["model"]),
+        # model=OpenAIChat(TEAM_CONFIG["model"]),
+        model=Groq(TEAM_CONFIG["model"]),
         members=agents,
         instructions=[
             "Collaborate to provide comprehensive assistance",

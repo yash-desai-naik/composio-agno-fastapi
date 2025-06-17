@@ -26,7 +26,8 @@ NO_AUTH_APPS = [
 
 # Agent Configuration
 AGENT_CONFIG = {
-    "model": "gpt-4o-mini",
+    # "model": "gpt-4o-mini",
+    "model":"llama-3.3-70b-versatile",
     "timezone": "Asia/Kolkata",
     "add_datetime": True,
     "add_location": True,
@@ -37,7 +38,8 @@ AGENT_CONFIG = {
 TEAM_CONFIG = {
     "name": "Composio Team",
     "mode": "coordinate",
-    "model": "gpt-4o-mini",
+    # "model": "gpt-4o-mini",
+    "model": "llama-3.3-70b-versatile",
     "markdown": True,
     "enable_agentic_context": True,
     "enable_agentic_memory": True,

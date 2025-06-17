@@ -1,0 +1,6 @@
+python-dotenv
+pydantic
+agno
+composio-agno
+openai
+mcp
